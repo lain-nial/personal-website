@@ -124,10 +124,10 @@ svg { display: block; max-width: 100%; }
   max-width: 100%;
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(40px, 4.4vw, 64px);
+  font-size: clamp(32px, 2.8vw, 40px);
   font-weight: 500;
-  letter-spacing: -0.045em;
-  line-height: 1.1;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
@@ -138,7 +138,7 @@ svg { display: block; max-width: 100%; }
   padding-left: clamp(16px, 2vw, 30px);
   border-left: 2px solid var(--accent);
   font-family: var(--serif);
-  font-size: clamp(25px, 2.8vw, 40px);
+  font-size: clamp(24px, 2.2vw, 32px);
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1.5;
@@ -159,7 +159,7 @@ svg { display: block; max-width: 100%; }
 .body-copy {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(20px, 1.8vw, 27px);
+  font-size: clamp(19px, 1.6vw, 24px);
   letter-spacing: 0.01em;
   line-height: 1.9;
   white-space: pre-line;
@@ -517,8 +517,8 @@ body.is-editing .email-link::after { opacity: 0.35; }.toast {
   .page-shell { padding: 22px 20px 20px; }
   .brand-mark { width: 38px; height: 38px; }
   .main { padding: 62px 0 82px; }
-  .name { font-size: clamp(38px, 7vw, 54px); line-height: 1.12; }
-  .tagline { font-size: clamp(23px, 4vw, 32px); }
+  .name { font-size: clamp(32px, 5vw, 40px); line-height: 1.15; }
+  .tagline { font-size: clamp(22px, 3.5vw, 28px); }
   .hero-bottom { grid-template-columns: 1fr; gap: 34px; }
   .email-link { justify-self: start; font-size: 24px; }
   .site-footer { align-items: flex-start; }
@@ -527,8 +527,8 @@ body.is-editing .email-link::after { opacity: 0.35; }.toast {
 @media (max-width: 520px) {
   .page-shell { padding-right: 18px; padding-left: 18px; }
   .main { padding-top: 58px; padding-bottom: 70px; }
-  .name { font-size: clamp(36px, 10vw, 48px); letter-spacing: -0.04em; }
-  .tagline { margin-top: 30px; padding-left: 14px; font-size: 24px; line-height: 1.5; }
+  .name { font-size: clamp(30px, 8vw, 36px); letter-spacing: -0.03em; }
+  .tagline { margin-top: 30px; padding-left: 14px; font-size: 22px; line-height: 1.5; }
   .hero-bottom { margin-top: 52px; gap: 30px; }
   .body-copy { font-size: 18px; }
   .email-link { font-size: 22px; }
