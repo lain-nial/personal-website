@@ -1,0 +1,15 @@
+{
+    "site":  {
+                 "name":  "作业",
+                 "tagline":  "目前使用codex直连deepseek"
+             },
+    "intro":  {
+                  "body":  "用来设计此次的作业，效果不错"
+              },
+    "contact":  {
+                    "email":  "hello@example.com"
+                },
+    "footer":  {
+                   "note":  ""
+               }
+}

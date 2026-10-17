@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="一个简洁的个人主页。">
+  <meta name="theme-color" content="#f3efe6">
+  <meta property="og:title" content="你的名字 — 个人网站">
+  <meta property="og:description" content="一个简洁、可以随时修改文字的个人主页。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <title>你的名字 — 个人网站</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="github-config.js" defer></script>
+  <script src="github-adapter.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="paper-texture" aria-hidden="true"></div>
+
+  <div class="page-shell">
+    <header class="topbar">
+      <span class="brand-mark" data-initial>你</span>
+      <span class="topbar-rule" aria-hidden="true"></span>
+      <span class="topbar-dot" aria-hidden="true"></span>
+    </header>
+
+    <main class="main" id="main">
+      <section class="hero" aria-label="个人介绍">
+        <h1 class="name" data-field="site.name">你的名字</h1>
+        <p class="tagline" data-field="site.tagline">在这里写一句简短的自我介绍。</p>
+
+        <div class="hero-bottom">
+          <p class="body-copy" data-field="intro.body">在这里写下关于你的文字。可以介绍你正在做的事、关心的话题，或者任何想让人了解你的内容。</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-meta">
+        <span data-field="footer.note">保持联系。</span>
+        <span class="footer-separator" aria-hidden="true"></span>
+        <span>© <span id="year">2026</span></span>
+      </div>
+      <div class="footer-actions">
+        <button class="footer-link" id="copy-link" type="button">复制链接</button>
+        <button class="footer-link" id="admin-trigger" type="button">管理站点</button>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="editor-bar" id="editor-bar" hidden>
+    <div class="editor-state">
+      <span class="editor-pulse" aria-hidden="true"></span>
+      <span id="editor-state-text">编辑模式</span>
+    </div>
+    <span class="editor-divider" aria-hidden="true"></span>
+    <button class="editor-save" id="save-button" type="button">保存发布</button>
+    <button class="editor-button" id="cancel-button" type="button">取消</button>
+    <span class="editor-divider" aria-hidden="true"></span>
+    <button class="editor-button editor-icon-button" id="share-button" type="button" aria-label="复制公开链接" title="复制公开链接">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"></path><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"></path></svg>
+    </button>
+    <button class="editor-button editor-exit" id="logout-button" type="button">退出</button>
+  </div>
+
+  <dialog class="login-dialog" id="login-dialog">
+    <form id="login-form">
+      <button class="dialog-close" id="login-close" type="button" aria-label="关闭">×</button>
+      <div class="login-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+      <p class="dialog-eyebrow">PRIVATE EDITOR</p>
+      <h2>进入编辑模式</h2>
+      <p class="dialog-copy">登录后，点击页面上的文字即可修改。保存发布后，访客刷新页面就能看到你写的内容。</p>
+      <label for="password">管理员密码</label>
+      <div class="password-wrap">
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+        <button id="toggle-password" type="button" aria-label="显示密码">显示</button>
+      </div>
+      <p class="form-error" id="login-error" role="alert"></p>
+      <button class="login-submit" id="login-submit" type="submit">登录并开始编辑</button>
+      <p class="dialog-footnote">访客无需密码即可浏览。编辑权限仅限管理员。</p>
+    </form>
+  </dialog>
+
+  <noscript>
+    <div class="noscript">这个网站需要启用 JavaScript 才能加载内容。</div>
+  </noscript>
+</body>
+</html>
