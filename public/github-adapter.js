@@ -52,7 +52,8 @@
   }
 
   async function getPublishedContent() {
-    const url = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${branch}/${CONTENT_PATH}?t=${Date.now()}`;
+    const url = new URL('content.json', window.location.href);
+    url.searchParams.set('t', Date.now());
     const response = await nativeFetch(url, { cache: 'no-store' });
     if (!response.ok) throw new Error('无法读取网站内容');
     return response.text();
