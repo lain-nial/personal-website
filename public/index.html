@@ -12,9 +12,11 @@
   <title>你的名字 — 个人网站</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="mlp.css">
   <script src="github-config.js" defer></script>
   <script src="github-adapter.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="mlp.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -27,13 +29,171 @@
       <span class="topbar-dot" aria-hidden="true"></span>
     </header>
 
-    <main class="main" id="main">
+    <main class="main main-with-lab" id="main">
       <section class="hero" aria-label="个人介绍">
         <h1 class="name" data-field="site.name">你的名字</h1>
         <p class="tagline" data-field="site.tagline">在这里写一句简短的自我介绍。</p>
 
         <div class="hero-bottom">
           <p class="body-copy" data-field="intro.body">在这里写下关于你的文字。可以介绍你正在做的事、关心的话题，或者任何想让人了解你的内容。</p>
+          <a class="lab-jump" href="#mlp-lab">MLP 参数实验</a>
+        </div>
+      </section>
+      <section class="mlp-section" id="mlp-lab" aria-labelledby="mlp-title">
+        <div class="mlp-heading">
+          <p class="section-kicker"><span>LAB 01</span> MULTILAYER PERCEPTRON</p>
+          <div class="mlp-heading-grid">
+            <h2 class="mlp-title" id="mlp-title">让参数<br><em>自己长出来。</em></h2>
+            <div class="mlp-intro">
+              <p>一个 2 → N → 1 的多层感知机正在学习二维分类。启动训练后，观察决策边界如何移动，连接权重如何改变，以及每一层激活如何响应你的指针。</p>
+              <p class="mlp-formula">ŷ = <strong>σ</strong>(W₂ tanh(W₁x + b₁) + b₂)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mlp-dashboard">
+          <article class="mlp-card decision-card">
+            <header class="card-heading">
+              <div>
+                <p class="card-index">01 / DECISION SPACE</p>
+                <h3 class="card-title">决策边界</h3>
+              </div>
+              <div class="dataset-switch" role="group" aria-label="选择训练数据集">
+                <button type="button" data-dataset="xor" aria-pressed="true">XOR</button>
+                <button type="button" data-dataset="ring" aria-pressed="false">环形</button>
+                <button type="button" data-dataset="moons" aria-pressed="false">双月</button>
+              </div>
+            </header>
+
+            <div class="canvas-wrap">
+              <canvas id="decision-canvas" tabindex="0" role="img" aria-label="MLP 在二维输入空间中的分类概率和决策边界">当前浏览器不支持 Canvas。</canvas>
+              <div class="canvas-probe" aria-hidden="true">
+                <span>PROBE</span>
+                <span id="probe-input">x = (0.00, 0.00)</span>
+                <strong id="probe-output">ŷ = 0.500</strong>
+              </div>
+            </div>
+
+            <div class="decision-footer">
+              <div class="plot-legend" aria-label="图例">
+                <span class="legend-item"><i class="legend-dot is-negative"></i>类别 0</span>
+                <span class="legend-item"><i class="legend-dot is-positive"></i>类别 1</span>
+                <span class="legend-item"><i class="legend-gradient"></i>P(y=1)</span>
+              </div>
+              <span class="canvas-hint">移动指针查看前向传播 · 点击重置探测点</span>
+            </div>
+          </article>
+
+          <aside class="mlp-card training-card" aria-labelledby="training-title">
+            <header class="card-heading">
+              <div>
+                <p class="card-index">02 / OPTIMIZATION</p>
+                <h3 class="card-title" id="training-title">学习参数</h3>
+                <span class="run-status" id="run-status" role="status">等待训练</span>
+              </div>
+            </header>
+
+            <div class="control-stack">
+              <div class="control">
+                <label class="control-label" for="lr-range">学习率 η</label>
+                <output class="control-value" id="lr-value" for="lr-range">0.12</output>
+                <input id="lr-range" type="range" min="0.01" max="0.5" step="0.01" value="0.12">
+              </div>
+              <div class="control">
+                <label class="control-label" for="hidden-select">隐藏层神经元</label>
+                <select id="hidden-select">
+                  <option value="3">3 个 · 最小非线性</option>
+                  <option value="4">4 个</option>
+                  <option value="5" selected>5 个 · 推荐</option>
+                  <option value="6">6 个</option>
+                  <option value="8">8 个 · 更灵活</option>
+                </select>
+                <p class="control-note">改变神经元数量会重新初始化全部权重与偏置；双月数据可尝试 8 个。</p>
+              </div>
+              <div class="control">
+                <label class="control-label" for="speed-select">训练速度</label>
+                <select id="speed-select">
+                  <option value="1">1 epoch / 帧</option>
+                  <option value="2" selected>2 epochs / 帧</option>
+                  <option value="4">4 epochs / 帧</option>
+                  <option value="8">8 epochs / 帧</option>
+                  <option value="16">16 epochs / 帧</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="training-actions">
+              <button class="mlp-button is-primary" id="train-button" type="button">开始训练</button>
+              <button class="mlp-button" id="step-button" type="button">单步</button>
+              <button class="mlp-button" id="reset-button" type="button">重置</button>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric"><span class="metric-label">EPOCH</span><strong class="metric-value" id="epoch-value">0</strong></div>
+              <div class="metric"><span class="metric-label">BCE LOSS</span><strong class="metric-value" id="loss-value">0.6931</strong></div>
+              <div class="metric"><span class="metric-label">ACCURACY</span><strong class="metric-value" id="accuracy-value">—</strong></div>
+              <div class="metric"><span class="metric-label">‖∇θ‖</span><strong class="metric-value" id="gradient-value">—</strong></div>
+            </div>
+
+            <div class="loss-wrap">
+              <canvas id="loss-canvas" role="img" aria-label="训练损失随 epoch 变化的曲线">损失曲线。</canvas>
+            </div>
+          </aside>
+
+          <article class="mlp-card network-card">
+            <header class="card-heading">
+              <div>
+                <p class="card-index">03 / FORWARD PASS</p>
+                <h3 class="card-title">连接与激活</h3>
+              </div>
+            </header>
+            <div class="network-stage">
+              <svg id="network-svg" viewBox="0 0 460 250" role="img" aria-labelledby="network-title network-desc">
+                <title id="network-title">2 层 MLP 网络连接图</title>
+                <desc id="network-desc">线条表示权重，颜色表示正负；节点亮度表示当前探测输入的激活值。</desc>
+              </svg>
+            </div>
+            <div class="network-legend">
+              <span><i class="network-key-line is-positive"></i>正权重</span>
+              <span><i class="network-key-line is-negative"></i>负权重</span>
+              <span>线宽 = |w|</span>
+              <span>移动指针改变激活</span>
+            </div>
+          </article>
+
+          <article class="mlp-card parameters-card">
+            <header class="card-heading">
+              <div>
+                <p class="card-index">04 / LEARNED PARAMETERS</p>
+                <h3 class="card-title">参数矩阵</h3>
+              </div>
+            </header>
+            <div class="param-layout">
+              <section class="param-block">
+                <div class="param-heading"><strong>W¹</strong><span>2 × N · INPUT → HIDDEN</span></div>
+                <div class="matrix matrix-w1" id="w1-matrix" aria-label="第一层权重矩阵"></div>
+              </section>
+              <section class="param-block">
+                <div class="param-heading"><strong>b¹</strong><span>N · HIDDEN BIAS</span></div>
+                <div class="matrix matrix-b1" id="b1-matrix" aria-label="第一层偏置"></div>
+              </section>
+              <section class="param-block is-wide">
+                <div class="param-heading"><strong>W² / b²</strong><span>N → 1 · OUTPUT LAYER</span></div>
+                <div class="matrix matrix-w2" id="w2-matrix" aria-label="第二层权重"></div>
+              </section>
+              <section class="param-block">
+                <div class="param-heading"><strong>b²</strong><span>1 · OUTPUT BIAS</span></div>
+                <div class="matrix matrix-b2" id="b2-matrix" aria-label="第二层偏置"></div>
+              </section>
+              <div class="param-scale" aria-hidden="true"><span>−</span><i class="param-scale-bar"></i><span>+</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="formula-strip" aria-label="MLP 学习过程">
+          <div class="formula-step"><span>01 / FORWARD</span><strong>h = tanh(W₁x + b₁)</strong><p>输入经过线性变换与非线性激活，得到隐藏层表示。</p></div>
+          <div class="formula-step"><span>02 / BACKWARD</span><strong>∂L/∂θ ← 链式法则</strong><p>输出误差沿网络反向传播，得到每个权重和偏置的梯度。</p></div>
+          <div class="formula-step"><span>03 / UPDATE</span><strong>θ ← θ − η∇<sub>θ</sub>L</strong><p>沿负梯度方向更新参数，决策边界随训练逐步成形。</p></div>
         </div>
       </section>
     </main>
