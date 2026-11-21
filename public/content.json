@@ -1,15 +1,44 @@
 {
-    "site":  {
-                 "name":  "作业",
-                 "tagline":  "目前使用codex直连deepseek"
-             },
-    "intro":  {
-                  "body":  "用来设计此次的作业，效果不错"
-              },
-    "contact":  {
-                    "email":  "hello@example.com"
-                },
-    "footer":  {
-                   "note":  ""
-               }
+  "site": {
+    "name": "lain",
+    "updated": "2026.11.21"
+  },
+  "projects": [
+    {
+      "id": "mlp-lab",
+      "title": "MLP 参数学习可视化",
+      "category": "交互实验",
+      "year": "2026",
+      "status": "可体验",
+      "featured": true,
+      "visual": "network",
+      "summary": "用 Canvas 把神经网络训练从抽象公式变成可观察的运动：决策边界、连接权重和参数矩阵会随着训练一起变化。",
+      "description": [
+        "这是一个 2 → N → 1 的小型多层感知机实验。目标不是训练出最强模型，而是让梯度下降、激活值和参数更新之间的关系变得可见。",
+        "页面把分类边界、网络连接图、损失曲线和参数矩阵放在同一个训练场景里。移动鼠标可以探测输入，切换数据集则能观察模型如何重新组织自己的决策方式。"
+      ],
+      "tags": ["Canvas", "JavaScript", "神经网络", "数据可视化"],
+      "links": [
+        { "label": "在线体验", "url": "mlp-lab.html" }
+      ]
+    },
+    {
+      "id": "personal-website",
+      "title": "个人项目档案",
+      "category": "网站",
+      "year": "2026",
+      "status": "持续迭代",
+      "featured": false,
+      "visual": "editorial",
+      "summary": "一个内容驱动、无需构建工具的个人项目展示站。新增项目时只需要在页面内填写信息并发布。",
+      "description": [
+        "网站只保留项目上传与项目展示两项核心功能。项目数据集中保存在 public/content.json 中，并通过 GitHub API 发布。",
+        "页面可以直接上传项目名称、简介、链接、封面、标签和状态，发布后由 GitHub Pages 自动更新。"
+      ],
+      "tags": ["HTML", "CSS", "JavaScript", "GitHub Pages"],
+      "links": [
+        { "label": "查看仓库", "url": "https://github.com/lain-nial/personal-website" }
+      ]
+    }
+  ]
 }

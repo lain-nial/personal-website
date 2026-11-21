@@ -1,363 +1,393 @@
 'use strict';
 
 (() => {
-  const state = {
-    content: null,
-    original: null,
-    authenticated: false,
-    editing: false,
-    dirty: false,
-    saving: false
-  };
-
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
-  const fieldElements = $$('[data-field]');
-  const editorBar = $('#editor-bar');
-  const editorStateText = $('#editor-state-text');
-  const saveButton = $('#save-button');
-  const cancelButton = $('#cancel-button');
-  const logoutButton = $('#logout-button');
-  const adminTrigger = $('#admin-trigger');
-  const loginDialog = $('#login-dialog');
-  const loginForm = $('#login-form');
-  const passwordInput = $('#password');
-  const loginError = $('#login-error');
-  const loginSubmit = $('#login-submit');
-  const toast = $('#toast');
-  let toastTimer = null;
 
-  function getPath(object, dottedPath) {
-    return dottedPath.split('.').reduce((value, key) => (value == null ? undefined : value[key]), object);
+  const state = {
+    content: null,
+    filter: '全部',
+    query: '',
+    authenticated: false,
+    publishing: false
+  };
+
+  const els = {
+    projectCount: $('#project-count'),
+    lastUpdate: $('#last-update'),
+    filters: $('#filters'),
+    search: $('#search'),
+    projectGrid: $('#project-grid'),
+    emptyState: $('#empty-state'),
+    footerYear: $('#footer-year'),
+    openUpload: $('#open-upload'),
+    emptyUpload: $('#empty-upload'),
+    uploadDialog: $('#upload-dialog'),
+    uploadClose: $('#upload-close'),
+    authPanel: $('#auth-panel'),
+    authStatus: $('#auth-status'),
+    token: $('#token'),
+    connectButton: $('#connect-button'),
+    projectForm: $('#project-form'),
+    disconnectButton: $('#disconnect-button'),
+    uploadStatus: $('#upload-status'),
+    publishButton: $('#publish-button'),
+    detailDialog: $('#detail-dialog'),
+    detailClose: $('#detail-close'),
+    detailContent: $('#detail-content'),
+    toast: $('#toast')
+  };
+
+  function element(tag, className = '', text = '') {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== '') node.textContent = text;
+    return node;
   }
 
-  function setPath(object, dottedPath, value) {
-    const keys = dottedPath.split('.');
-    let cursor = object;
-    for (let index = 0; index < keys.length - 1; index += 1) {
-      const key = keys[index];
-      if (cursor[key] == null || typeof cursor[key] !== 'object') cursor[key] = {};
-      cursor = cursor[key];
-    }
-    cursor[keys[keys.length - 1]] = value;
-  }
-
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  function plainText(element) {
-    return (element.innerText || element.textContent || '').replace(/\r/g, '').trim();
-  }
-
-  function initials(name) {
-    const value = String(name || '').trim();
-    const latinWords = value.match(/[A-Za-z]+/g);
-    if (latinWords && latinWords.length) {
-      return latinWords.map((word) => word[0]).join('').slice(0, 2).toUpperCase();
-    }
-    return value.slice(0, 1) || 'ME';
-  }
-
-  function showToast(message, isError = false) {
-    window.clearTimeout(toastTimer);
-    toast.textContent = message;
-    toast.classList.toggle('is-error', isError);
-    toast.classList.add('is-visible');
-    toastTimer = window.setTimeout(() => toast.classList.remove('is-visible'), 3200);
-  }
-
-  async function request(url, options = {}) {
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      ...options,
-      headers: {
-        Accept: 'application/json',
-        ...(options.headers || {})
-      }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(payload.error || '请求失败，请稍后再试');
-      error.status = response.status;
-      throw error;
-    }
-    return payload;
-  }
-
-  function hydrate(content) {
-    state.content = content;
-    fieldElements.forEach((element) => {
-      const value = getPath(content, element.dataset.field);
-      if (typeof value === 'string') element.textContent = value;
-    });
-
-    const name = content.site.name || '个人网站';
-    const tagline = content.site.tagline || '';
-    const mark = initials(name);
-    $$('[data-initial]').forEach((element) => { element.textContent = mark; });
-
-    const email = content.contact.email.trim();
-    const emailLink = $('[data-email-link]');
-    if (emailLink) emailLink.setAttribute('href', `mailto:${email}`);
-
-    document.title = tagline ? `${name} — ${tagline}` : name;
-    const description = $('meta[name="description"]');
-    if (description) description.setAttribute('content', `${name}的个人网站。${content.intro.body}`);
-    $('#year').textContent = String(new Date().getFullYear());
-  }
-
-  function collectContent() {
-    if (!state.content) return null;
-    const next = clone(state.content);
-    fieldElements.forEach((element) => {
-      setPath(next, element.dataset.field, plainText(element));
-    });
-    return next;
-  }
-
-  function updateEditorState() {
-    if (!state.editing) return;
-    editorStateText.textContent = state.dirty ? '有未保存修改' : '已保存';
-    saveButton.disabled = !state.dirty || state.saving;
-    saveButton.textContent = state.saving ? '发布中…' : '保存发布';
-  }
-
-  function setEditing(enabled) {
-    state.editing = enabled;
-    document.body.classList.toggle('is-editing', enabled);
-    editorBar.hidden = !enabled;
-
-    fieldElements.forEach((element) => {
-      if (enabled) {
-        element.setAttribute('contenteditable', 'true');
-        element.setAttribute('spellcheck', 'false');
-        element.setAttribute('role', 'textbox');
-      } else {
-        element.removeAttribute('contenteditable');
-        element.removeAttribute('spellcheck');
-        element.removeAttribute('role');
-      }
-    });
-
-    if (enabled) {
-      state.original = clone(state.content);
-      state.dirty = false;
-      adminTrigger.textContent = '编辑中';
-      updateEditorState();
-      window.setTimeout(() => {
-        const firstField = $('[data-field="site.name"]');
-        if (firstField) firstField.focus({ preventScroll: true });
-      }, 260);
-    } else {
-      state.dirty = false;
-      adminTrigger.textContent = state.authenticated ? '进入编辑' : '管理站点';
-    }
-  }
-
-  async function saveContent() {
-    if (!state.editing || state.saving) return;
-    const next = collectContent();
-    if (!next) return;
-
-    state.saving = true;
-    updateEditorState();
+  function safeUrl(value) {
+    if (!value) return '';
     try {
-      await request('/api/content', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'personal-site-editor'
-        },
-        body: JSON.stringify({ content: next })
-      });
-      state.content = next;
-      state.original = clone(next);
-      state.dirty = false;
-      hydrate(next);
-      if (state.editing) setEditing(true);
-      showToast(window.SITE_GITHUB ? '已提交，GitHub Pages 正在更新，约 1–2 分钟' : '已发布，所有访客都会看到最新内容');
-    } catch (error) {
-      if (error.status === 401) {
-        state.authenticated = false;
-        setEditing(false);
-        openLogin('登录已过期，请重新输入密码');
-      } else {
-        showToast(error.message || '保存失败，请稍后再试', true);
-      }
-    } finally {
-      state.saving = false;
-      updateEditorState();
-    }
-  }
-
-  function cancelEditing() {
-    if (state.dirty && !window.confirm('有未保存的修改，确定取消吗？')) return;
-    hydrate(state.content);
-    setEditing(false);
-    showToast('已取消本次修改');
-  }
-
-  function openLogin(message = '') {
-    loginError.textContent = message;
-    passwordInput.value = '';
-    loginDialog.showModal();
-    window.setTimeout(() => passwordInput.focus(), 120);
-  }
-
-  function closeLogin() {
-    if (loginDialog.open) loginDialog.close();
-    loginError.textContent = '';
-    loginSubmit.disabled = false;
-    loginSubmit.textContent = '登录并开始编辑';
-  }
-
-  async function checkSession() {
-    try {
-      const session = await request('/api/session');
-      state.authenticated = Boolean(session.authenticated);
-      adminTrigger.textContent = state.authenticated ? '进入编辑' : '管理站点';
-      if (state.authenticated && window.location.hash === '#edit' && state.content) {
-        setEditing(true);
-      }
+      const url = new URL(value, window.location.href);
+      if (['http:', 'https:'].includes(url.protocol)) return url.href;
     } catch {
-      state.authenticated = false;
+      return '';
     }
+    return '';
+  }
+
+  function formatArchiveDate(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
+  }
+
+  function makeTags(tags = []) {
+    const wrap = element('div', 'tags');
+    tags.filter(Boolean).forEach((tag) => wrap.append(element('span', 'tag', tag)));
+    return wrap;
+  }
+
+  function renderFilters() {
+    const projects = state.content.projects || [];
+    const categories = ['全部', ...new Set(projects.map((project) => project.category).filter(Boolean))];
+    if (!categories.includes(state.filter)) state.filter = '全部';
+    els.filters.replaceChildren();
+    categories.forEach((category) => {
+      const button = element('button', 'filter-button', category);
+      button.type = 'button';
+      button.setAttribute('aria-pressed', String(state.filter === category));
+      button.addEventListener('click', () => {
+        state.filter = category;
+        renderFilters();
+        renderProjects();
+      });
+      els.filters.append(button);
+    });
+  }
+
+  function buildCover(project, index) {
+    const cover = element('div', 'project-cover');
+    const image = safeUrl(project.cover);
+    if (image) {
+      cover.classList.add('cover-image');
+      cover.style.backgroundImage = `url("${image.replaceAll('"', '%22')}")`;
+    } else {
+      cover.classList.add(`visual-${project.visual || 'grid'}`);
+      if (project.visual === 'network') {
+        ['node-one', 'node-two', 'node-three', 'node-four'].forEach((name) => cover.append(element('span', `net-node ${name}`)));
+        ['line-one', 'line-two', 'line-three'].forEach((name) => cover.append(element('span', `net-line ${name}`)));
+        cover.append(element('span', 'cover-word', 'MLP'));
+      } else if (project.visual === 'editorial') {
+        cover.append(element('span', 'editorial-copy', 'Ideas\nbecome\nprojects.'));
+        cover.append(element('span', 'editorial-letter', 'Aa'));
+      } else {
+        cover.append(element('span', 'grid-word', 'PROJECT'));
+      }
+    }
+    cover.append(element('span', 'cover-index', String(index + 1).padStart(2, '0')));
+    cover.append(element('span', 'cover-status', project.status || project.year || ''));
+    return cover;
+  }
+
+  function renderProjects() {
+    const projects = Array.isArray(state.content.projects) ? state.content.projects : [];
+    const query = state.query.trim().toLowerCase();
+    const filtered = projects.filter((project) => {
+      const categoryMatch = state.filter === '全部' || project.category === state.filter;
+      const searchText = [project.title, project.summary, project.category, ...(project.tags || [])].join(' ').toLowerCase();
+      return categoryMatch && (!query || searchText.includes(query));
+    });
+
+    els.projectCount.textContent = `${String(projects.length).padStart(2, '0')} PROJECTS`;
+    els.projectGrid.replaceChildren();
+    els.emptyState.hidden = filtered.length > 0;
+
+    filtered.forEach((project) => {
+      const card = element('article', `project-card${project.featured ? ' is-featured' : ''}`);
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `查看项目：${project.title}`);
+      card.append(buildCover(project, projects.indexOf(project)));
+
+      const body = element('div', 'project-body');
+      const meta = element('div', 'project-meta');
+      meta.append(element('span', '', project.category || '项目'));
+      meta.append(element('span', '', project.year || ''));
+      body.append(meta, element('h3', '', project.title || '未命名项目'));
+      body.append(element('p', 'project-summary', project.summary || ''));
+
+      const footer = element('div', 'project-footer');
+      footer.append(makeTags(project.tags));
+      footer.append(element('span', 'card-arrow', '↗'));
+      body.append(footer);
+      card.append(body);
+
+      const open = () => openProject(project);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          open();
+        }
+      });
+      els.projectGrid.append(card);
+    });
+  }
+
+  function renderContent() {
+    document.title = `${state.content.site?.name || 'lain'} · 项目档案`;
+    els.lastUpdate.textContent = state.content.site?.updated || formatArchiveDate();
+    els.footerYear.textContent = new Date().getFullYear();
+    renderFilters();
+    renderProjects();
   }
 
   async function loadContent() {
+    const response = await fetch(`content.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`项目数据读取失败 (${response.status})`);
+    state.content = await response.json();
+    if (!Array.isArray(state.content.projects)) throw new Error('content.json 缺少 projects 数组');
+  }
+  function openProject(project) {
+    const hero = element('header', 'detail-hero');
+    hero.append(element('p', 'eyebrow', `PROJECT / ${project.category || 'WORK'}`));
+    hero.append(element('h2', '', project.title || '未命名项目'));
+    hero.append(element('p', '', project.summary || ''));
+    els.detailContent.replaceChildren(hero);
+
+    const body = element('div', 'detail-body');
+    const meta = element('div', 'detail-meta');
+    [project.category, project.year, project.status, ...(project.tags || [])].filter(Boolean).forEach((item) => meta.append(element('span', '', item)));
+    body.append(meta);
+
+    const copy = element('div', 'detail-copy');
+    const paragraphs = Array.isArray(project.description) && project.description.length ? project.description : [project.summary].filter(Boolean);
+    paragraphs.forEach((paragraph) => copy.append(element('p', '', paragraph)));
+    body.append(copy);
+
+    const actions = element('div', 'detail-actions');
+    (project.links || []).forEach((link, index) => {
+      const url = safeUrl(link.url);
+      if (!url) return;
+      const anchor = element('a', `detail-link${index === 0 ? ' is-primary' : ''}`, `${link.label || '打开项目'} ↗`);
+      anchor.href = url;
+      anchor.target = '_blank';
+      anchor.rel = 'noreferrer';
+      actions.append(anchor);
+    });
+    if (actions.childNodes.length) body.append(actions);
+    els.detailContent.append(body);
+    showDialog(els.detailDialog);
+  }
+
+  function showDialog(dialog) {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDialog(dialog) {
+    if (dialog.open && typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+    if (!document.querySelector('dialog[open]')) document.body.style.overflow = '';
+  }
+
+  async function openUploadDialog() {
+    if (!els.uploadDialog.open) showDialog(els.uploadDialog);
+    els.authStatus.textContent = '';
+    els.uploadStatus.textContent = '';
     try {
-      const content = await request('/api/content');
-      hydrate(content);
+      const response = await fetch('/api/session', { cache: 'no-store' });
+      const session = await response.json();
+      state.authenticated = Boolean(session.authenticated);
+    } catch {
+      state.authenticated = false;
+    }
+    updateAuthView();
+  }
+
+  function updateAuthView() {
+    els.authPanel.hidden = state.authenticated;
+    els.projectForm.hidden = !state.authenticated;
+    if (!state.authenticated) els.token.focus();
+  }
+
+  async function connectGitHub() {
+    const token = els.token.value.trim();
+    if (!token) {
+      els.authStatus.textContent = '请输入 GitHub Token。';
+      return;
+    }
+    els.connectButton.disabled = true;
+    els.authStatus.textContent = '正在验证仓库权限…';
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: token })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '连接失败');
+      state.authenticated = true;
+      els.token.value = '';
+      els.authStatus.textContent = '';
+      updateAuthView();
     } catch (error) {
-      showToast('内容加载失败，请刷新页面重试', true);
-      console.error(error);
+      els.authStatus.textContent = error.message || 'GitHub 连接失败。';
+    } finally {
+      els.connectButton.disabled = false;
     }
   }
 
-  async function copyPublicLink(trigger) {
-    const url = `${window.location.origin}${window.location.pathname}`;
+  async function disconnectGitHub() {
     try {
-      await navigator.clipboard.writeText(url);
+      await fetch('/api/logout', { method: 'POST' });
     } catch {
-      const input = document.createElement('textarea');
-      input.value = url;
-      input.setAttribute('readonly', '');
-      input.style.position = 'fixed';
-      input.style.opacity = '0';
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      input.remove();
+      // The session may already be gone.
     }
-    showToast('公开链接已复制');
-    if (trigger) {
-      const previous = trigger.textContent;
-      trigger.textContent = '已复制';
-      window.setTimeout(() => { trigger.textContent = previous; }, 1600);
+    state.authenticated = false;
+    updateAuthView();
+  }
+
+  function parseTags(value) {
+    return [...new Set(value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean))];
+  }
+
+  function resetForm() {
+    els.projectForm.reset();
+    const year = $('#project-year');
+    const category = $('#project-category');
+    if (year) year.value = String(new Date().getFullYear());
+    if (category) category.value = '项目';
+  }
+
+  async function publishProject(event) {
+    event.preventDefault();
+    if (state.publishing) return;
+
+    const title = $('#project-title').value.trim();
+    const summary = $('#project-summary').value.trim();
+    if (!title || !summary) {
+      els.uploadStatus.textContent = '请填写项目名称和项目简介。';
+      return;
     }
+
+    const url = safeUrl($('#project-url').value.trim());
+    const cover = safeUrl($('#project-cover').value.trim());
+    const year = $('#project-year').value.trim() || String(new Date().getFullYear());
+    const category = $('#project-category').value.trim() || '项目';
+    const tags = parseTags($('#project-tags').value);
+    const newProject = {
+      id: `project-${Date.now().toString(36)}`,
+      title,
+      category,
+      year,
+      status: $('#project-status').value,
+      featured: $('#project-featured').checked,
+      visual: $('#project-visual').value,
+      summary,
+      description: [summary],
+      tags,
+      links: url ? [{ label: '打开项目', url }] : []
+    };
+    if (cover) newProject.cover = cover;
+
+    const nextContent = {
+      ...state.content,
+      site: { ...(state.content.site || {}), updated: formatArchiveDate() },
+      projects: [newProject, ...(state.content.projects || [])]
+    };
+
+    state.publishing = true;
+    els.publishButton.disabled = true;
+    els.uploadStatus.textContent = '正在提交到 GitHub…';
+    try {
+      const response = await fetch('/api/content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: nextContent })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '发布失败');
+      state.content = nextContent;
+      renderContent();
+      resetForm();
+      closeDialog(els.uploadDialog);
+      showToast('项目已上传。GitHub Pages 通常会在 1–2 分钟内更新。');
+    } catch (error) {
+      els.uploadStatus.textContent = error.message || '发布失败，请检查 Token 权限。';
+    } finally {
+      state.publishing = false;
+      els.publishButton.disabled = false;
+    }
+  }
+
+  let toastTimer = 0;
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    els.toast.textContent = message;
+    els.toast.classList.add('is-visible');
+    toastTimer = window.setTimeout(() => els.toast.classList.remove('is-visible'), 5200);
+  }
+
+  function bindDialog(dialog, closeButton) {
+    closeButton.addEventListener('click', () => closeDialog(dialog));
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) closeDialog(dialog);
+    });
+    dialog.addEventListener('close', () => {
+      if (!document.querySelector('dialog[open]')) document.body.style.overflow = '';
+    });
+  }
+
+  function bindEvents() {
+    els.search.addEventListener('input', () => {
+      state.query = els.search.value;
+      renderProjects();
+    });
+    els.openUpload.addEventListener('click', openUploadDialog);
+    els.emptyUpload.addEventListener('click', openUploadDialog);
+    els.connectButton.addEventListener('click', connectGitHub);
+    els.disconnectButton.addEventListener('click', disconnectGitHub);
+    els.projectForm.addEventListener('submit', publishProject);
+    bindDialog(els.detailDialog, els.detailClose);
+    bindDialog(els.uploadDialog, els.uploadClose);
   }
 
   async function init() {
-    await Promise.all([loadContent(), checkSession()]);
-
-    fieldElements.forEach((element) => {
-      element.addEventListener('input', () => {
-        if (!state.editing || state.saving) return;
-        state.dirty = true;
-        updateEditorState();
-      });
-      element.addEventListener('paste', (event) => {
-        if (!state.editing) return;
-        event.preventDefault();
-        const text = (event.clipboardData || window.clipboardData).getData('text/plain');
-        document.execCommand('insertText', false, text);
-      });
-      element.addEventListener('drop', (event) => {
-        if (state.editing) event.preventDefault();
-      });
-    });
-
-    adminTrigger.addEventListener('click', () => {
-      if (state.editing) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        showToast('正在编辑，修改完后点击“保存发布”');
-      } else if (state.authenticated && state.content) {
-        setEditing(true);
-      } else {
-        openLogin();
-      }
-    });
-
-    saveButton.addEventListener('click', saveContent);
-    cancelButton.addEventListener('click', cancelEditing);
-    $('#copy-link').addEventListener('click', (event) => copyPublicLink(event.currentTarget));
-    $('#share-button').addEventListener('click', () => copyPublicLink());
-
-    logoutButton.addEventListener('click', async () => {
-      if (state.dirty && !window.confirm('还有未保存的修改，确定退出吗？')) return;
-      try {
-        await request('/api/logout', { method: 'POST' });
-      } finally {
-        state.dirty = false;
-        window.location.href = `${window.location.pathname}${window.location.search}`;
-      }
-    });
-
-    loginForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      loginError.textContent = '';
-      loginSubmit.disabled = true;
-      loginSubmit.textContent = '正在验证…';
-      try {
-        await request('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: passwordInput.value })
-        });
-        state.authenticated = true;
-        closeLogin();
-        if (state.content) {
-          setEditing(true);
-          showToast('已登录，点击任意文字即可编辑');
-        } else {
-          showToast('登录成功，但内容尚未加载，请刷新页面', true);
-        }
-      } catch (error) {
-        loginError.textContent = error.message || '登录失败';
-        passwordInput.select();
-      } finally {
-        loginSubmit.disabled = false;
-        loginSubmit.textContent = '登录并开始编辑';
-      }
-    });
-
-    $('#login-close').addEventListener('click', closeLogin);
-    $('#toggle-password').addEventListener('click', (event) => {
-      const showing = passwordInput.type === 'text';
-      passwordInput.type = showing ? 'password' : 'text';
-      event.currentTarget.textContent = showing ? '显示' : '隐藏';
-      event.currentTarget.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码');
-      passwordInput.focus();
-    });
-
-    loginDialog.addEventListener('click', (event) => {
-      if (event.target === loginDialog) closeLogin();
-    });
-
-    window.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && state.editing) {
-        event.preventDefault();
-        if (state.dirty) saveContent();
-      }
-    });
-
-    window.addEventListener('beforeunload', (event) => {
-      if (state.editing && state.dirty) {
-        event.preventDefault();
-        event.returnValue = '';
-      }
-    });
+    bindEvents();
+    try {
+      await loadContent();
+      renderContent();
+    } catch (error) {
+      state.content = { site: { name: 'lain', updated: formatArchiveDate() }, projects: [] };
+      renderContent();
+      els.emptyState.hidden = false;
+      els.emptyState.querySelector('p').textContent = `项目数据加载失败：${error.message}`;
+      console.error(error);
+    }
   }
 
   init();

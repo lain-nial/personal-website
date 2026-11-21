@@ -25,7 +25,8 @@
     return {
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'lain-nial-personal-website'
     };
   }
 
@@ -65,7 +66,7 @@
       token
     );
     if (!currentResponse.ok) {
-      throw new Error(currentResponse.status === 401 ? 'GitHub 授权已失效，请重新登录' : '无法读取 GitHub 中的内容文件');
+      throw new Error(currentResponse.status === 401 ? 'GitHub 授权已失效，请重新连接' : '无法读取 GitHub 中的内容文件');
     }
     const current = await currentResponse.json();
     const serialized = `${JSON.stringify(content, null, 2)}\n`;
@@ -76,7 +77,7 @@
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `更新个人网站文字 ${new Date().toISOString()}`,
+          message: `更新个人网站内容 ${new Date().toISOString()}`,
           content: base64EncodeUnicode(serialized),
           branch,
           sha: current.sha
@@ -100,11 +101,11 @@
 
     if (url.origin !== window.location.origin) return nativeFetch(input, init);
 
-    if (url.pathname === '/api/session' && (!init.method || init.method === 'GET')) {
+    if (url.pathname.endsWith('/api/session') && (!init.method || init.method === 'GET')) {
       return jsonResponse({ authenticated: Boolean(getToken()) });
     }
 
-    if (url.pathname === '/api/login' && init.method === 'POST') {
+    if (url.pathname.endsWith('/api/login') && init.method === 'POST') {
       try {
         const body = JSON.parse(init.body || '{}');
         const token = String(body.password || '').trim();
@@ -119,12 +120,12 @@
       }
     }
 
-    if (url.pathname === '/api/logout' && init.method === 'POST') {
+    if (url.pathname.endsWith('/api/logout') && init.method === 'POST') {
       window.sessionStorage.removeItem(TOKEN_KEY);
       return jsonResponse({ authenticated: false });
     }
 
-    if (url.pathname === '/api/content' && (!init.method || init.method === 'GET')) {
+    if (url.pathname.endsWith('/api/content') && (!init.method || init.method === 'GET')) {
       try {
         const raw = await getPublishedContent();
         return new Response(raw, {
@@ -136,9 +137,9 @@
       }
     }
 
-    if (url.pathname === '/api/content' && init.method === 'PUT') {
+    if (url.pathname.endsWith('/api/content') && init.method === 'PUT') {
       const token = getToken();
-      if (!token) return jsonResponse({ error: '请先登录 GitHub' }, 401);
+      if (!token) return jsonResponse({ error: '请先连接 GitHub' }, 401);
       try {
         const body = JSON.parse(init.body || '{}');
         await savePublishedContent(body.content, token);
@@ -150,20 +151,4 @@
 
     return nativeFetch(input, init);
   };
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const label = document.querySelector('label[for="password"]');
-    const input = document.querySelector('#password');
-    const copy = document.querySelector('.dialog-copy');
-    const footnote = document.querySelector('.dialog-footnote');
-    const eyebrow = document.querySelector('.dialog-eyebrow');
-    if (label) label.textContent = 'GitHub 访问令牌';
-    if (input) {
-      input.placeholder = '粘贴 GitHub Token';
-      input.autocomplete = 'off';
-    }
-    if (copy) copy.textContent = '粘贴一个有 Contents 读写权限的 GitHub Token。令牌只保存在当前浏览器标签页中，不会写入公开网站。';
-    if (footnote) footnote.textContent = '保存后会提交到 GitHub，GitHub Pages 通常会在 1–2 分钟内自动更新。';
-    if (eyebrow) eyebrow.textContent = 'GITHUB EDITOR';
-  });
 })();

@@ -1,0 +1,1687 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="一个简洁易懂的 MLP 学习参数交互可视化。">
+  <meta name="theme-color" content="#f7f6f2">
+  <title>MLP 参数学习可视化</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+:root {
+  --bg: #f7f6f2;
+  --surface: #fffefb;
+  --surface-soft: #fbfaf6;
+  --ink: #1c1d1a;
+  --muted: #6f7069;
+  --muted-light: #9b9c94;
+  --line: #dfded7;
+  --line-strong: #cac8bf;
+  --accent: #df4b2f;
+  --accent-deep: #b9341e;
+  --teal: #2d6a67;
+  --sans: "Avenir Next", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --mono: "SFMono-Regular", "Cascadia Mono", "Roboto Mono", "Courier New", monospace;
+  --radius: 18px;
+  --page-pad: clamp(20px, 4vw, 56px);
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(223, 75, 47, 0.055), transparent 28rem),
+    radial-gradient(circle at 95% 24%, rgba(45, 106, 103, 0.055), transparent 32rem),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select { font: inherit; }
+button { color: inherit; }
+a { color: inherit; text-decoration: none; }
+svg { display: block; max-width: 100%; }
+::selection { background: var(--accent); color: #fff; }
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  transform: translateY(-150%);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus { transform: translateY(0); }
+
+.page-shell {
+  width: min(100%, 1360px);
+  margin: 0 auto;
+  padding: 22px var(--page-pad) 32px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 44px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: inline-flex; align-items: center; gap: 11px; }
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--surface);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.brand-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.brand-name b { color: var(--accent); font-weight: 700; }
+
+.header-note {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.intro {
+  max-width: 980px;
+  padding: clamp(58px, 8vw, 104px) 0 clamp(42px, 6vw, 76px);
+}
+
+.eyebrow,
+.section-label {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.intro h1 {
+  max-width: 860px;
+  margin: 18px 0 0;
+  font-size: clamp(46px, 6.3vw, 82px);
+  font-weight: 650;
+  letter-spacing: -0.06em;
+  line-height: 1.02;
+}
+
+.intro h1 span { color: var(--accent); }
+
+.lead {
+  max-width: 690px;
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: clamp(15px, 1.4vw, 19px);
+  line-height: 1.8;
+}
+
+.step-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: clamp(34px, 5vw, 58px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--line);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  min-width: 0;
+  padding: 18px 20px;
+  background: rgba(255, 254, 251, 0.82);
+}
+
+.step > span {
+  grid-row: 1 / 3;
+  align-self: start;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.step b { font-size: 13px; font-weight: 650; }
+.step small { color: var(--muted); font-size: 11px; line-height: 1.55; }
+
+.workspace { display: grid; gap: 18px; }
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 254, 251, 0.9);
+  box-shadow: 0 14px 50px rgba(28, 29, 26, 0.035);
+}
+
+.training-panel { padding: clamp(18px, 2.5vw, 30px); }
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 24px;
+}
+
+.compact-header { align-items: center; margin-bottom: 12px; }
+
+.panel-title {
+  margin: 7px 0 0;
+  font-size: clamp(24px, 2.2vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.panel-tag {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.dataset-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+
+.dataset-switch button {
+  min-height: 33px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.dataset-switch button:hover { color: var(--ink); }
+
+.dataset-switch button[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(28, 29, 26, 0.16);
+}
+
+.training-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.48fr) minmax(310px, 0.52fr);
+  gap: clamp(18px, 2.5vw, 30px);
+  align-items: start;
+}
+
+.visual-column { min-width: 0; }
+
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+#decision-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#decision-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.canvas-probe {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(28, 29, 26, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 254, 251, 0.9);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.canvas-probe strong { color: var(--ink); font-size: 10px; font-weight: 600; }
+.probe-label { color: var(--accent); font-weight: 600; }
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+.legend-dot.is-zero { border: 1.5px solid var(--teal); background: var(--surface); }
+.legend-dot.is-one { border: 1.5px solid var(--accent-deep); background: var(--accent); }
+.legend-gradient { width: 56px; height: 5px; border-radius: 99px; background: linear-gradient(90deg, var(--teal), var(--surface) 50%, var(--accent)); }
+.canvas-help { margin-left: auto; color: var(--muted-light); font-family: var(--mono); font-size: 8px; }
+
+.control-column {
+  display: grid;
+  gap: 15px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.run-row { display: grid; gap: 5px; }
+
+.run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.run-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted-light);
+}
+
+.run-status.is-running::before {
+  background: var(--accent);
+  animation: statusPulse 1.4s infinite;
+}
+
+.run-status.is-done::before { background: var(--teal); }
+
+@keyframes statusPulse {
+  0% { box-shadow: 0 0 0 0 rgba(223, 75, 47, 0.4); }
+  70% { box-shadow: 0 0 0 7px rgba(223, 75, 47, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(223, 75, 47, 0); }
+}
+
+.run-help { color: var(--muted); font-size: 10px; line-height: 1.55; }
+
+.training-actions {
+  display: grid;
+  grid-template-columns: 1.25fr 0.8fr 0.8fr;
+  gap: 6px;
+}
+
+.button {
+  min-height: 39px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.button:hover { border-color: var(--accent); color: var(--accent); }
+.button.is-primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+.button.is-primary:hover { border-color: var(--accent); background: var(--accent); }
+.button:disabled { opacity: 0.42; cursor: not-allowed; }
+
+.control-stack { display: grid; gap: 14px; }
+
+.control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px 10px;
+  align-items: center;
+}
+
+.control-label { color: var(--muted); font-size: 10px; font-weight: 600; }
+.control-value { color: var(--ink); font-family: var(--mono); font-size: 10px; }
+
+.control input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.control-note {
+  grid-column: 1 / -1;
+  margin: -1px 0 0;
+  color: var(--muted-light);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.compact-control select {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.compact-control select:focus { border-color: var(--accent); }
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+}
+
+.metric { min-width: 0; padding: 11px 12px; background: var(--surface); }
+.metric span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 8px; }
+.metric strong { display: block; overflow: hidden; font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+
+.loss-box {
+  min-height: 118px;
+  padding: 10px 10px 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.loss-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 3px 2px; }
+.loss-heading span { color: var(--ink); font-size: 9px; font-weight: 600; }
+.loss-heading small { color: var(--muted-light); font-size: 8px; }
+#loss-canvas { display: block; width: 100%; height: 96px; }
+
+.insight-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.network-card, .parameters-card { padding: clamp(18px, 2.2vw, 28px); }
+
+.network-stage { min-height: 280px; padding: 4px 0; }
+#network-svg { width: 100%; height: auto; overflow: visible; }
+
+.network-layer-label {
+  fill: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.network-node-label {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.network-node-label.is-small { font-size: 7px; }
+
+.panel-note {
+  margin: 8px 0 0;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.param-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 15px;
+  align-items: start;
+}
+
+.param-block { min-width: 0; }
+.param-block.is-wide { grid-column: 1 / -1; }
+
+.param-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.param-heading strong { font-size: 15px; font-weight: 700; }
+.param-heading span { color: var(--muted); font-size: 8px; }
+
+.matrix { display: grid; gap: 3px; min-width: 0; }
+.matrix-w1, .matrix-b1 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.matrix-w2 { grid-template-columns: repeat(var(--hidden-count, 5), minmax(0, 1fr)); }
+.matrix-b2 { grid-template-columns: minmax(0, 1fr); }
+
+.param-cell {
+  display: grid;
+  place-content: center;
+  min-width: 0;
+  min-height: 35px;
+  padding: 3px;
+  border-radius: 5px;
+  color: var(--ink);
+  text-align: center;
+  transition: background 130ms linear;
+}
+
+.param-cell span { overflow: hidden; margin-bottom: 1px; opacity: 0.55; font-family: var(--mono); font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+.param-cell b { overflow: hidden; font-family: var(--mono); font-size: clamp(8px, 0.72vw, 10px); font-variant-numeric: tabular-nums; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.param-cell.is-bias { min-height: 31px; }
+.param-scale { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; color: var(--muted-light); font-size: 8px; }
+.param-scale i { flex: 1; height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--teal), var(--surface) 50%, var(--accent)); }
+
+.explain {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 70px);
+  padding: clamp(52px, 7vw, 86px) 0 18px;
+}
+
+.explain-heading h2 { margin: 12px 0 0; font-size: clamp(28px, 3vw, 42px); font-weight: 650; letter-spacing: -0.045em; line-height: 1.12; }
+.explain-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+.explain-grid article {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 254, 251, 0.72);
+}
+
+.explain-grid article > span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: #fff; font-family: var(--mono); font-size: 12px; }
+.explain-grid h3 { margin: 15px 0 7px; font-size: 14px; font-weight: 650; }
+.explain-grid p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
+
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  color: var(--muted-light);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+}
+
+.site-footer a:hover { color: var(--accent); }
+
+.noscript {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  left: 20px;
+  z-index: 200;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--accent-deep);
+  color: #fff;
+  text-align: center;
+}
+
+@media (max-width: 1080px) {
+  .training-layout { grid-template-columns: minmax(0, 1.2fr) minmax(285px, 0.8fr); }
+  .control-column { padding: 15px; }
+  .param-layout { grid-template-columns: 1fr; }
+  .param-block.is-wide, .param-scale { grid-column: auto; }
+}
+
+@media (max-width: 900px) {
+  .training-layout { grid-template-columns: 1fr; }
+  .control-column { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .run-row, .training-actions, .control-stack { grid-column: 1 / -1; }
+  .metric-grid { grid-column: 1; }
+  .loss-box { grid-column: 2; min-height: 144px; }
+  #loss-canvas { height: 120px; }
+  .insight-grid { grid-template-columns: 1fr; }
+  .param-layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
+  .param-block.is-wide, .param-scale { grid-column: 1 / -1; }
+  .explain { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .site-header { align-items: flex-start; }
+  .header-note { padding-top: 7px; text-align: right; }
+  .intro { padding-top: 50px; }
+  .intro h1 { font-size: clamp(40px, 11.5vw, 56px); }
+  .intro h1 span { display: block; }
+  .step-list { grid-template-columns: 1fr; }
+  .panel-header { display: grid; gap: 16px; }
+  .compact-header { grid-template-columns: 1fr auto; align-items: center; }
+  .dataset-switch { width: 100%; }
+  .dataset-switch button { flex: 1; padding: 0 7px; }
+  .control-column { grid-template-columns: 1fr; padding: 14px; }
+  .metric-grid, .loss-box { grid-column: auto; }
+  .legend-row { gap: 8px 12px; }
+  .canvas-help { width: 100%; margin-left: 0; }
+  .explain-grid { grid-template-columns: 1fr; }
+  .param-layout { grid-template-columns: 1fr; }
+  .param-block.is-wide, .param-scale { grid-column: auto; }
+  .site-footer { align-items: flex-start; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+  
+  <style>
+    .lab-back{position:fixed;top:14px;right:14px;z-index:999;padding:10px 14px;border:1px solid rgba(28,29,26,.18);border-radius:999px;background:rgba(255,254,251,.9);color:#1c1d1a;font:600 11px/1 Avenir Next,"PingFang SC","Microsoft YaHei",sans-serif;text-decoration:none;box-shadow:0 8px 30px rgba(28,29,26,.1);backdrop-filter:blur(10px)}
+    .lab-back:hover{border-color:#df4b2f;color:#df4b2f}
+  </style>
+</head>
+<body>
+  <a class="lab-back" href="./">← 返回个人博客</a>
+  <a class="skip-link" href="#workspace">跳到训练区域</a>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="MLP Lab 首页">
+        <span class="brand-mark">M</span>
+        <span class="brand-name">MLP <b>LAB</b></span>
+      </a>
+      <span class="header-note">交互式神经网络演示</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">MULTILAYER PERCEPTRON</p>
+        <h1 id="page-title">看懂 MLP <span>如何学习。</span></h1>
+        <p class="lead">这是一个 2 → N → 1 的小型神经网络。点击开始训练，观察决策边界、连接权重和参数矩阵如何一起变化。</p>
+
+        <div class="step-list" aria-label="使用步骤">
+          <div class="step"><span>01</span><b>选择数据</b><small>异或、环形或双月</small></div>
+          <div class="step"><span>02</span><b>开始训练</b><small>模型通过梯度下降更新参数</small></div>
+          <div class="step"><span>03</span><b>观察变化</b><small>边界、损失和权重同步更新</small></div>
+        </div>
+      </section>
+
+      <section class="workspace" id="workspace" aria-labelledby="training-title">
+        <article class="panel training-panel">
+          <header class="panel-header">
+            <div>
+              <p class="section-label">TRAINING SPACE</p>
+              <h2 class="panel-title" id="training-title">训练模型</h2>
+            </div>
+            <div class="dataset-switch" role="group" aria-label="选择训练数据集">
+              <button type="button" data-dataset="xor" aria-pressed="true">异或 XOR</button>
+              <button type="button" data-dataset="ring" aria-pressed="false">环形</button>
+              <button type="button" data-dataset="moons" aria-pressed="false">双月</button>
+            </div>
+          </header>
+
+          <div class="training-layout">
+            <div class="visual-column">
+              <div class="canvas-wrap">
+                <canvas id="decision-canvas" tabindex="0" role="img" aria-label="MLP 在二维输入空间中的分类概率和决策边界">当前浏览器不支持 Canvas。</canvas>
+                <div class="canvas-probe" aria-hidden="true">
+                  <span class="probe-label">探测点</span>
+                  <span id="probe-input">(0.00, 0.00)</span>
+                  <strong id="probe-output">ŷ = 0.500</strong>
+                </div>
+              </div>
+
+              <div class="legend-row" aria-label="图例">
+                <span class="legend-item"><i class="legend-dot is-zero"></i>类别 0</span>
+                <span class="legend-item"><i class="legend-dot is-one"></i>类别 1</span>
+                <span class="legend-gradient" aria-hidden="true"></span>
+                <span>红色区域更可能属于类别 1</span>
+                <span class="canvas-help">移动鼠标可探测输入</span>
+              </div>
+            </div>
+
+            <aside class="control-column" aria-label="训练控制">
+              <div class="run-row">
+                <span class="run-status" id="run-status" role="status">等待训练</span>
+                <span class="run-help">先训练几十轮，再调整参数观察差异</span>
+              </div>
+
+              <div class="training-actions">
+                <button class="button is-primary" id="train-button" type="button">开始训练</button>
+                <button class="button" id="step-button" type="button">单步</button>
+                <button class="button" id="reset-button" type="button">重置</button>
+              </div>
+
+              <div class="control-stack">
+                <div class="control">
+                  <label class="control-label" for="lr-range">学习率 η</label>
+                  <output class="control-value" id="lr-value" for="lr-range">0.12</output>
+                  <input id="lr-range" type="range" min="0.01" max="0.5" step="0.01" value="0.12">
+                  <p class="control-note">越大：学得快但可能不稳定；越小：更平稳但更慢。</p>
+                </div>
+                <div class="control compact-control">
+                  <label class="control-label" for="hidden-select">隐藏层神经元</label>
+                  <select id="hidden-select">
+                    <option value="3">3 个</option>
+                    <option value="4">4 个</option>
+                    <option value="5" selected>5 个</option>
+                    <option value="6">6 个</option>
+                    <option value="8">8 个</option>
+                  </select>
+                </div>
+                <div class="control compact-control">
+                  <label class="control-label" for="speed-select">训练速度</label>
+                  <select id="speed-select">
+                    <option value="1">慢</option>
+                    <option value="2" selected>中</option>
+                    <option value="4">快</option>
+                    <option value="8">很快</option>
+                    <option value="16">极快</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="metric-grid">
+                <div class="metric"><span>训练轮数</span><strong id="epoch-value">0</strong></div>
+                <div class="metric"><span>损失</span><strong id="loss-value">0.6931</strong></div>
+                <div class="metric"><span>准确率</span><strong id="accuracy-value">—</strong></div>
+                <div class="metric"><span>梯度大小</span><strong id="gradient-value">—</strong></div>
+              </div>
+
+              <div class="loss-box">
+                <div class="loss-heading"><span>损失下降曲线</span><small>越低越好</small></div>
+                <canvas id="loss-canvas" role="img" aria-label="训练损失随 epoch 变化的曲线">损失曲线。</canvas>
+              </div>
+            </aside>
+          </div>
+        </article>
+
+        <div class="insight-grid">
+          <article class="panel network-card">
+            <header class="panel-header compact-header">
+              <div>
+                <p class="section-label">FORWARD PASS</p>
+                <h2 class="panel-title">网络连接与激活</h2>
+              </div>
+              <span class="panel-tag">鼠标移动可探索</span>
+            </header>
+            <div class="network-stage">
+              <svg id="network-svg" viewBox="0 0 460 250" role="img" aria-labelledby="network-title network-desc">
+                <title id="network-title">2 层 MLP 网络连接图</title>
+                <desc id="network-desc">线条表示权重，颜色表示正负；节点亮度表示当前探测输入的激活值。</desc>
+              </svg>
+            </div>
+            <p class="panel-note">线越粗表示权重绝对值越大。红色为正权重，绿色为负权重；节点颜色表示当前输入下的激活强度。</p>
+          </article>
+
+          <article class="panel parameters-card">
+            <header class="panel-header compact-header">
+              <div>
+                <p class="section-label">LEARNED PARAMETERS</p>
+                <h2 class="panel-title">参数矩阵</h2>
+              </div>
+              <span class="panel-tag">训练时实时更新</span>
+            </header>
+            <div class="param-layout">
+              <section class="param-block">
+                <div class="param-heading"><strong>W¹</strong><span>输入层 → 隐藏层</span></div>
+                <div class="matrix matrix-w1" id="w1-matrix" aria-label="第一层权重矩阵"></div>
+              </section>
+              <section class="param-block">
+                <div class="param-heading"><strong>b¹</strong><span>隐藏层偏置</span></div>
+                <div class="matrix matrix-b1" id="b1-matrix" aria-label="第一层偏置"></div>
+              </section>
+              <section class="param-block is-wide">
+                <div class="param-heading"><strong>W²</strong><span>隐藏层 → 输出层</span></div>
+                <div class="matrix matrix-w2" id="w2-matrix" aria-label="第二层权重"></div>
+              </section>
+              <section class="param-block">
+                <div class="param-heading"><strong>b²</strong><span>输出层偏置</span></div>
+                <div class="matrix matrix-b2" id="b2-matrix" aria-label="第二层偏置"></div>
+              </section>
+              <div class="param-scale" aria-hidden="true"><span>负</span><i></i><span>正</span></div>
+            </div>
+          </article>
+        </div>
+
+        <section class="explain" aria-labelledby="explain-title">
+          <div class="explain-heading">
+            <p class="eyebrow">PARAMETER GUIDE</p>
+            <h2 id="explain-title">如何理解这些参数？</h2>
+          </div>
+          <div class="explain-grid">
+            <article><span>W</span><h3>权重</h3><p>决定某个输入对下一层神经元的影响有多大。训练会不断调整这些连接。</p></article>
+            <article><span>b</span><h3>偏置</h3><p>让神经元在不依赖输入时也能产生偏移，帮助决策边界移动到更合适的位置。</p></article>
+            <article><span>∇</span><h3>梯度</h3><p>指出损失下降最快的方向。参数沿着梯度的反方向更新，预测就会逐渐变准。</p></article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>MLP LAB · 参数学习可视化</span>
+      <a href="#workspace">回到训练区域 ↑</a>
+    </footer>
+  </div>
+
+  <noscript>
+    <div class="noscript">这个页面需要启用 JavaScript 才能运行神经网络演示。</div>
+  </noscript>
+  <script>
+'use strict';
+
+(() => {
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const decisionCanvas = $('#decision-canvas');
+  if (!decisionCanvas) return;
+
+  const els = {
+    decisionCanvas,
+    lossCanvas: $('#loss-canvas'),
+    networkSvg: $('#network-svg'),
+    w1Matrix: $('#w1-matrix'),
+    b1Matrix: $('#b1-matrix'),
+    w2Matrix: $('#w2-matrix'),
+    b2Matrix: $('#b2-matrix'),
+    epoch: $('#epoch-value'),
+    loss: $('#loss-value'),
+    accuracy: $('#accuracy-value'),
+    gradient: $('#gradient-value'),
+    probeInput: $('#probe-input'),
+    probeOutput: $('#probe-output'),
+    lrRange: $('#lr-range'),
+    lrValue: $('#lr-value'),
+    hiddenSelect: $('#hidden-select'),
+    speedSelect: $('#speed-select'),
+    trainButton: $('#train-button'),
+    stepButton: $('#step-button'),
+    resetButton: $('#reset-button'),
+    runStatus: $('#run-status'),
+    datasetButtons: $$('[data-dataset]')
+  };
+
+  const COLORS = {
+    paper: [243, 239, 230],
+    paperLight: [250, 247, 241],
+    ink: [23, 24, 21],
+    muted: [112, 107, 97],
+    accent: [223, 75, 47],
+    teal: [45, 106, 103]
+  };
+  const WEIGHT_DECAY = 0.00008;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  const state = {
+    dataset: 'xor',
+    hidden: 5,
+    learningRate: 0.12,
+    speed: 2,
+    dataSeed: 31,
+    initSeed: 7717,
+    points: [],
+    w1: [],
+    b1: [],
+    w2: [],
+    b2: 0,
+    epochs: 0,
+    loss: null,
+    accuracy: null,
+    gradientNorm: null,
+    lossHistory: [],
+    training: false,
+    converged: false,
+    manualResume: false,
+    frameHandle: 0,
+    lastFrame: 0,
+    probe: { x: 0, y: 0, inside: false }
+  };
+
+  let paramCells = { w1: [], b1: [], w2: [], b2: null };
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function mixColor(from, to, t) {
+    const amount = clamp(t, 0, 1);
+    return `rgb(${Math.round(lerp(from[0], to[0], amount))}, ${Math.round(lerp(from[1], to[1], amount))}, ${Math.round(lerp(from[2], to[2], amount))})`;
+  }
+
+  function probabilityColor(probability) {
+    const distance = Math.abs(probability - 0.5) * 2;
+    const target = probability >= 0.5 ? COLORS.accent : COLORS.teal;
+    return mixColor(COLORS.paperLight, target, Math.pow(distance, 0.86) * 0.82);
+  }
+
+  function activationColor(value, scale = 1) {
+    const strength = clamp(Math.abs(value) / scale, 0, 1);
+    const target = value >= 0 ? COLORS.accent : COLORS.teal;
+    return mixColor(COLORS.paperLight, target, 0.08 + strength * 0.76);
+  }
+
+  function weightColor(value) {
+    return value >= 0
+      ? `rgba(223, 75, 47, ${0.08 + clamp(value, 0, 1) * 0.82})`
+      : `rgba(45, 106, 103, ${0.08 + clamp(-value, 0, 1) * 0.82})`;
+  }
+
+  function makeRng(seed) {
+    let value = seed >>> 0;
+    return () => {
+      value += 0x6D2B79F5;
+      let t = value;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function gaussian(random) {
+    const u = Math.max(random(), 1e-9);
+    const v = Math.max(random(), 1e-9);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function sigmoid(value) {
+    if (value >= 0) {
+      const exp = Math.exp(-value);
+      return 1 / (1 + exp);
+    }
+    const exp = Math.exp(value);
+    return exp / (1 + exp);
+  }
+
+  function createDataset(type, seed) {
+    const random = makeRng(seed);
+    const points = [];
+    const push = (x, y, label) => {
+      const clippedX = clamp(x, -0.96, 0.96);
+      const clippedY = clamp(y, -0.96, 0.96);
+      points.push({ x: clippedX, y: clippedY, label });
+    };
+
+    if (type === 'ring') {
+      const countPerClass = 82;
+      for (let index = 0; index < countPerClass; index += 1) {
+        const innerAngle = random() * Math.PI * 2;
+        const innerRadius = 0.08 + Math.sqrt(random()) * 0.25;
+        push(
+          Math.cos(innerAngle) * innerRadius + gaussian(random) * 0.035,
+          Math.sin(innerAngle) * innerRadius + gaussian(random) * 0.035,
+          0
+        );
+
+        const outerAngle = random() * Math.PI * 2;
+        const outerRadius = 0.62 + random() * 0.27;
+        push(
+          Math.cos(outerAngle) * outerRadius + gaussian(random) * 0.045,
+          Math.sin(outerAngle) * outerRadius + gaussian(random) * 0.045,
+          1
+        );
+      }
+      return points;
+    }
+
+    if (type === 'moons') {
+      const countPerClass = 84;
+      for (let index = 0; index < countPerClass; index += 1) {
+        const angle = random() * Math.PI;
+        const upperX = Math.cos(angle) * 0.68 - 0.04;
+        const upperY = Math.sin(angle) * 0.42 - 0.22;
+        push(upperX + gaussian(random) * 0.045, upperY + gaussian(random) * 0.045, 0);
+
+        const lowerX = -Math.cos(angle) * 0.68 + 0.04;
+        const lowerY = -Math.sin(angle) * 0.42 + 0.22;
+        push(lowerX + gaussian(random) * 0.045, lowerY + gaussian(random) * 0.045, 1);
+      }
+      return points;
+    }
+
+    const centers = [
+      { x: -0.56, y: -0.56, label: 0 },
+      { x: -0.56, y: 0.56, label: 1 },
+      { x: 0.56, y: -0.56, label: 1 },
+      { x: 0.56, y: 0.56, label: 0 }
+    ];
+    const countPerCorner = 34;
+    centers.forEach((center) => {
+      for (let index = 0; index < countPerCorner; index += 1) {
+        push(
+          center.x + gaussian(random) * 0.115,
+          center.y + gaussian(random) * 0.115,
+          center.label
+        );
+      }
+    });
+    return points;
+  }
+
+  function initializeWeights() {
+    const random = makeRng(state.initSeed);
+    const hidden = state.hidden;
+    const limit1 = 1.15 / Math.sqrt(2);
+    const limit2 = 1.15 / Math.sqrt(hidden);
+
+    state.w1 = Array.from({ length: hidden }, () => [
+      (random() * 2 - 1) * limit1,
+      (random() * 2 - 1) * limit1
+    ]);
+    state.b1 = Array.from({ length: hidden }, () => (random() * 2 - 1) * 0.08);
+    state.w2 = Array.from({ length: hidden }, () => (random() * 2 - 1) * limit2);
+    state.b2 = (random() * 2 - 1) * 0.08;
+  }
+
+  function forward(x, y) {
+    const hiddenValues = new Array(state.hidden);
+    let weightedOutput = state.b2;
+    for (let index = 0; index < state.hidden; index += 1) {
+      const preActivation = state.b1[index] + state.w1[index][0] * x + state.w1[index][1] * y;
+      const activation = Math.tanh(preActivation);
+      hiddenValues[index] = activation;
+      weightedOutput += state.w2[index] * activation;
+    }
+    return { hidden: hiddenValues, output: sigmoid(weightedOutput) };
+  }
+
+  function measureModel() {
+    let loss = 0;
+    let correct = 0;
+    const count = state.points.length;
+    state.points.forEach((point) => {
+      const probability = clamp(forward(point.x, point.y).output, 1e-7, 1 - 1e-7);
+      loss += -(point.label * Math.log(probability) + (1 - point.label) * Math.log(1 - probability));
+      if ((probability >= 0.5 ? 1 : 0) === point.label) correct += 1;
+    });
+    loss /= Math.max(1, count);
+    loss += 0.5 * WEIGHT_DECAY * (
+      state.w1.flat().reduce((sum, weight) => sum + weight * weight, 0) +
+      state.w2.reduce((sum, weight) => sum + weight * weight, 0)
+    );
+    state.loss = loss;
+    state.accuracy = correct / Math.max(1, count);
+  }
+
+  function trainEpoch() {
+    const count = state.points.length;
+    const hidden = state.hidden;
+    const gradW1 = Array.from({ length: hidden }, () => [0, 0]);
+    const gradB1 = new Array(hidden).fill(0);
+    const gradW2 = new Array(hidden).fill(0);
+    let gradB2 = 0;
+    let loss = 0;
+    let correct = 0;
+    const hiddenValues = new Array(hidden);
+
+    state.points.forEach((point) => {
+      let outputPreActivation = state.b2;
+      for (let index = 0; index < hidden; index += 1) {
+        const preActivation = state.b1[index] + state.w1[index][0] * point.x + state.w1[index][1] * point.y;
+        const activation = Math.tanh(preActivation);
+        hiddenValues[index] = activation;
+        outputPreActivation += state.w2[index] * activation;
+      }
+
+      const probability = clamp(sigmoid(outputPreActivation), 1e-7, 1 - 1e-7);
+      loss += -(point.label * Math.log(probability) + (1 - point.label) * Math.log(1 - probability));
+      if ((probability >= 0.5 ? 1 : 0) === point.label) correct += 1;
+
+      const deltaOutput = probability - point.label;
+      gradB2 += deltaOutput;
+      for (let index = 0; index < hidden; index += 1) {
+        const activation = hiddenValues[index];
+        gradW2[index] += deltaOutput * activation;
+        const deltaHidden = deltaOutput * state.w2[index] * (1 - activation * activation);
+        gradW1[index][0] += deltaHidden * point.x;
+        gradW1[index][1] += deltaHidden * point.y;
+        gradB1[index] += deltaHidden;
+      }
+    });
+
+    const normalization = 1 / Math.max(1, count);
+    let gradientSquares = 0;
+
+    for (let index = 0; index < hidden; index += 1) {
+      for (let inputIndex = 0; inputIndex < 2; inputIndex += 1) {
+        const gradient = gradW1[index][inputIndex] * normalization + WEIGHT_DECAY * state.w1[index][inputIndex];
+        gradientSquares += gradient * gradient;
+        state.w1[index][inputIndex] -= state.learningRate * gradient;
+      }
+      const biasGradient = gradB1[index] * normalization;
+      gradientSquares += biasGradient * biasGradient;
+      state.b1[index] -= state.learningRate * biasGradient;
+
+      const outputGradient = gradW2[index] * normalization + WEIGHT_DECAY * state.w2[index];
+      gradientSquares += outputGradient * outputGradient;
+      state.w2[index] -= state.learningRate * outputGradient;
+    }
+
+    const outputBiasGradient = gradB2 * normalization;
+    gradientSquares += outputBiasGradient * outputBiasGradient;
+    state.b2 -= state.learningRate * outputBiasGradient;
+
+    loss = loss * normalization + 0.5 * WEIGHT_DECAY * (
+      state.w1.flat().reduce((sum, weight) => sum + weight * weight, 0) +
+      state.w2.reduce((sum, weight) => sum + weight * weight, 0)
+    );
+
+    state.epochs += 1;
+    state.loss = loss;
+    state.accuracy = correct / Math.max(1, count);
+    state.gradientNorm = Math.sqrt(gradientSquares);
+
+    if (!Number.isFinite(loss) || !Number.isFinite(state.gradientNorm) || loss > 12) {
+      stopTraining('训练发散 · 请重置', true);
+      return;
+    }
+
+    state.lossHistory.push({ epoch: state.epochs, loss });
+    if (state.lossHistory.length > 1600) {
+      state.lossHistory = state.lossHistory.filter((entry, index) => index % 2 === 0 || index === state.lossHistory.length - 1);
+    }
+
+    if (!state.manualResume && state.epochs > 80 && state.accuracy >= 0.995 && state.loss < 0.035) {
+      state.converged = true;
+      stopTraining('已收敛', false, 'done');
+    }
+  }
+
+  function setCanvasSize(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelWidth = Math.round(width * ratio);
+    const pixelHeight = Math.round(height * ratio);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+    const context = canvas.getContext('2d');
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.imageSmoothingEnabled = true;
+    return { context, width, height };
+  }
+
+  function renderDecisionBoundary() {
+    const { context, width, height } = setCanvasSize(decisionCanvas);
+    context.clearRect(0, 0, width, height);
+    const padding = Math.max(10, Math.min(width, height) * 0.028);
+    const plotSize = Math.min(width, height) - padding * 2;
+    const gridSize = 48;
+    const heatCanvas = document.createElement('canvas');
+    heatCanvas.width = gridSize;
+    heatCanvas.height = gridSize;
+    const heatContext = heatCanvas.getContext('2d');
+
+    for (let row = 0; row < gridSize; row += 1) {
+      const y = 1 - (row + 0.5) / gridSize * 2;
+      for (let column = 0; column < gridSize; column += 1) {
+        const x = -1 + (column + 0.5) / gridSize * 2;
+        heatContext.fillStyle = probabilityColor(forward(x, y).output);
+        heatContext.fillRect(column, row, 1, 1);
+      }
+    }
+
+    context.drawImage(heatCanvas, padding, padding, plotSize, plotSize);
+    context.strokeStyle = 'rgba(23, 24, 21, 0.09)';
+    context.lineWidth = 1;
+    for (let index = 0; index <= 4; index += 1) {
+      const offset = padding + plotSize * index / 4;
+      context.beginPath();
+      context.moveTo(offset, padding);
+      context.lineTo(offset, padding + plotSize);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(padding, offset);
+      context.lineTo(padding + plotSize, offset);
+      context.stroke();
+    }
+
+    context.strokeStyle = 'rgba(23, 24, 21, 0.38)';
+    context.strokeRect(padding, padding, plotSize, plotSize);
+
+    const toCanvas = (x, y) => ({
+      x: padding + (x + 1) * 0.5 * plotSize,
+      y: padding + (1 - y) * 0.5 * plotSize
+    });
+
+    state.points.forEach((point) => {
+      const canvasPoint = toCanvas(point.x, point.y);
+      context.beginPath();
+      context.arc(canvasPoint.x, canvasPoint.y, 4.2, 0, Math.PI * 2);
+      context.fillStyle = point.label === 1 ? 'rgb(223, 75, 47)' : 'rgb(250, 247, 241)';
+      context.fill();
+      context.lineWidth = 1.7;
+      context.strokeStyle = point.label === 1 ? 'rgb(185, 52, 30)' : 'rgb(45, 106, 103)';
+      context.stroke();
+    });
+
+    if (state.probe.inside) {
+      const probePoint = toCanvas(state.probe.x, state.probe.y);
+      context.strokeStyle = 'rgba(23, 24, 21, 0.55)';
+      context.lineWidth = 1;
+      context.setLineDash([3, 3]);
+      context.beginPath();
+      context.moveTo(probePoint.x, padding);
+      context.lineTo(probePoint.x, padding + plotSize);
+      context.moveTo(padding, probePoint.y);
+      context.lineTo(padding + plotSize, probePoint.y);
+      context.stroke();
+      context.setLineDash([]);
+      context.beginPath();
+      context.arc(probePoint.x, probePoint.y, 7, 0, Math.PI * 2);
+      context.strokeStyle = 'rgb(23, 24, 21)';
+      context.lineWidth = 1.2;
+      context.stroke();
+    }
+
+    const accuracyText = state.accuracy == null ? '尚未评估' : `训练准确率 ${(state.accuracy * 100).toFixed(1)}%`;
+    decisionCanvas.setAttribute('aria-label', `MLP 二维分类决策图，当前训练 ${state.epochs} 轮，${accuracyText}。红色区域预测为类别 1，青色区域预测为类别 0。`);
+  }
+
+  function renderLossChart() {
+    const { context, width, height } = setCanvasSize(els.lossCanvas);
+    context.clearRect(0, 0, width, height);
+    const margin = { top: 13, right: 8, bottom: 18, left: 34 };
+    const chartWidth = Math.max(1, width - margin.left - margin.right);
+    const chartHeight = Math.max(1, height - margin.top - margin.bottom);
+    const history = state.lossHistory;
+
+    context.font = '8px "Cascadia Mono", "Roboto Mono", monospace';
+    context.fillStyle = 'rgb(167, 161, 150)';
+    context.textAlign = 'right';
+    context.textBaseline = 'middle';
+
+    if (!history.length) {
+      context.strokeStyle = 'rgba(23, 24, 21, 0.12)';
+      context.setLineDash([3, 4]);
+      context.beginPath();
+      context.moveTo(margin.left, margin.top + chartHeight * 0.55);
+      context.lineTo(margin.left + chartWidth, margin.top + chartHeight * 0.55);
+      context.stroke();
+      context.setLineDash([]);
+      context.textAlign = 'center';
+      context.fillStyle = 'rgb(167, 161, 150)';
+      context.fillText('等待训练数据', margin.left + chartWidth / 2, margin.top + chartHeight / 2);
+      els.lossCanvas.setAttribute('aria-label', '损失曲线，目前还没有训练数据。');
+      return;
+    }
+
+    const maxLoss = Math.max(0.1, ...history.map((entry) => entry.loss));
+    const maxEpoch = Math.max(1, state.epochs);
+    for (let index = 0; index <= 2; index += 1) {
+      const value = maxLoss * index / 2;
+      const y = margin.top + chartHeight - chartHeight * index / 2;
+      context.strokeStyle = 'rgba(23, 24, 21, 0.08)';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(margin.left, y);
+      context.lineTo(margin.left + chartWidth, y);
+      context.stroke();
+      context.fillText(value.toFixed(2), margin.left - 6, y);
+    }
+
+    context.textAlign = 'left';
+    context.textBaseline = 'bottom';
+    context.fillText('0', margin.left, height - 3);
+    context.textAlign = 'right';
+    context.fillText(`${maxEpoch} 轮`, margin.left + chartWidth, height - 3);
+
+    const points = history.map((entry) => ({
+      x: margin.left + entry.epoch / maxEpoch * chartWidth,
+      y: margin.top + chartHeight - clamp(entry.loss / maxLoss, 0, 1) * chartHeight
+    }));
+
+    const gradient = context.createLinearGradient(0, margin.top, 0, margin.top + chartHeight);
+    gradient.addColorStop(0, 'rgba(223, 75, 47, 0.22)');
+    gradient.addColorStop(1, 'rgba(223, 75, 47, 0)');
+    context.beginPath();
+    context.moveTo(points[0].x, margin.top + chartHeight);
+    points.forEach((point) => context.lineTo(point.x, point.y));
+    context.lineTo(points[points.length - 1].x, margin.top + chartHeight);
+    context.closePath();
+    context.fillStyle = gradient;
+    context.fill();
+
+    context.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) context.moveTo(point.x, point.y);
+      else context.lineTo(point.x, point.y);
+    });
+    context.strokeStyle = 'rgb(223, 75, 47)';
+    context.lineWidth = 1.7;
+    context.lineJoin = 'round';
+    context.lineCap = 'round';
+    context.stroke();
+
+    els.lossCanvas.setAttribute('aria-label', `训练损失曲线，当前训练 ${state.epochs} 轮，损失 ${state.loss.toFixed(4)}。`);
+  }
+
+  function appendSvg(parent, tag, attributes = {}, text = '') {
+    const element = document.createElementNS(SVG_NS, tag);
+    Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
+    if (text) element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function renderNetwork() {
+    const svg = els.networkSvg;
+    svg.replaceChildren();
+    appendSvg(svg, 'title', { id: 'network-title' }, '2 层 MLP 网络连接图');
+    appendSvg(svg, 'desc', { id: 'network-desc' }, '线条表示权重，颜色表示正负；节点亮度表示当前探测输入的激活值。');
+
+    const probe = state.probe.inside ? state.probe : { x: 0, y: 0 };
+    const activation = forward(probe.x, probe.y);
+    const inputPositions = [
+      { x: 72, y: 92 },
+      { x: 72, y: 158 }
+    ];
+    const outputPosition = { x: 392, y: 125 };
+    const hiddenPositions = state.hidden === 1
+      ? [{ x: 232, y: 125 }]
+      : Array.from({ length: state.hidden }, (_, index) => ({
+          x: 232,
+          y: 48 + index / (state.hidden - 1) * 154
+        }));
+
+    const hiddenRadius = state.hidden >= 7 ? 12.5 : 15;
+    const maxW1 = Math.max(0.3, ...state.w1.flat().map((value) => Math.abs(value)));
+    const maxW2 = Math.max(0.3, ...state.w2.map((value) => Math.abs(value)));
+
+    appendSvg(svg, 'text', { x: 72, y: 31, 'text-anchor': 'middle', class: 'network-layer-label' }, '输入层');
+    appendSvg(svg, 'text', { x: 232, y: 31, 'text-anchor': 'middle', class: 'network-layer-label' }, '隐藏层 · tanh');
+    appendSvg(svg, 'text', { x: 392, y: 31, 'text-anchor': 'middle', class: 'network-layer-label' }, '输出层 · sigmoid');
+
+    hiddenPositions.forEach((hiddenPosition, hiddenIndex) => {
+      inputPositions.forEach((inputPosition, inputIndex) => {
+        const weight = state.w1[hiddenIndex][inputIndex];
+        const strength = Math.abs(weight) / maxW1;
+        const line = appendSvg(svg, 'line', {
+          x1: inputPosition.x,
+          y1: inputPosition.y,
+          x2: hiddenPosition.x,
+          y2: hiddenPosition.y,
+          stroke: weight >= 0 ? 'rgb(223, 75, 47)' : 'rgb(45, 106, 103)',
+          'stroke-width': 0.45 + strength * 2.9,
+          'stroke-opacity': 0.12 + strength * 0.68
+        });
+        appendSvg(line, 'title', {}, `w1[${hiddenIndex + 1},${inputIndex + 1}] = ${weight.toFixed(4)}`);
+      });
+
+      const outputWeight = state.w2[hiddenIndex];
+      const outputStrength = Math.abs(outputWeight) / maxW2;
+      const line = appendSvg(svg, 'line', {
+        x1: hiddenPosition.x,
+        y1: hiddenPosition.y,
+        x2: outputPosition.x,
+        y2: outputPosition.y,
+        stroke: outputWeight >= 0 ? 'rgb(223, 75, 47)' : 'rgb(45, 106, 103)',
+        'stroke-width': 0.45 + outputStrength * 3.2,
+        'stroke-opacity': 0.12 + outputStrength * 0.7
+      });
+      appendSvg(line, 'title', {}, `w2[${hiddenIndex + 1}] = ${outputWeight.toFixed(4)}`);
+    });
+
+    const inputValues = [probe.x, probe.y];
+    inputPositions.forEach((position, index) => {
+      const node = appendSvg(svg, 'circle', {
+        cx: position.x,
+        cy: position.y,
+        r: 19,
+        fill: activationColor(inputValues[index], 1),
+        stroke: 'rgba(23, 24, 21, 0.48)',
+        'stroke-width': 1
+      });
+      appendSvg(node, 'title', {}, `输入 x${index + 1} = ${inputValues[index].toFixed(3)}`);
+      appendSvg(svg, 'text', { x: position.x, y: position.y + 3, 'text-anchor': 'middle', class: 'network-node-label' }, `x${index + 1}`);
+    });
+
+    hiddenPositions.forEach((position, index) => {
+      const value = activation.hidden[index];
+      const node = appendSvg(svg, 'circle', {
+        cx: position.x,
+        cy: position.y,
+        r: hiddenRadius,
+        fill: activationColor(value, 1),
+        stroke: 'rgba(23, 24, 21, 0.42)',
+        'stroke-width': 0.9
+      });
+      appendSvg(node, 'title', {}, `隐藏神经元 ${index + 1}: tanh = ${value.toFixed(4)}`);
+      appendSvg(svg, 'text', {
+        x: position.x,
+        y: position.y + 2.5,
+        'text-anchor': 'middle',
+        class: state.hidden >= 7 ? 'network-node-label is-small' : 'network-node-label'
+      }, String(index + 1));
+    });
+
+    const outputNode = appendSvg(svg, 'circle', {
+      cx: outputPosition.x,
+      cy: outputPosition.y,
+      r: 21,
+      fill: activationColor(activation.output, 1),
+      stroke: 'rgba(23, 24, 21, 0.5)',
+      'stroke-width': 1.1
+    });
+    appendSvg(outputNode, 'title', {}, `输出概率 = ${activation.output.toFixed(4)}`);
+    appendSvg(svg, 'text', { x: outputPosition.x, y: outputPosition.y + 3, 'text-anchor': 'middle', class: 'network-node-label' }, 'ŷ');
+  }
+
+  function createParamCell(label, extraClass = '') {
+    const cell = document.createElement('div');
+    cell.className = `param-cell ${extraClass}`.trim();
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('b');
+    value.textContent = '0.00';
+    cell.append(name, value);
+    cell._valueElement = value;
+    cell._label = label;
+    return cell;
+  }
+
+  function buildParameterCells() {
+    els.w1Matrix.replaceChildren();
+    els.b1Matrix.replaceChildren();
+    els.w2Matrix.replaceChildren();
+    els.b2Matrix.replaceChildren();
+    paramCells = { w1: [], b1: [], w2: [], b2: null };
+
+    for (let hiddenIndex = 0; hiddenIndex < state.hidden; hiddenIndex += 1) {
+      for (let inputIndex = 0; inputIndex < 2; inputIndex += 1) {
+        const cell = createParamCell(`h${hiddenIndex + 1}·x${inputIndex + 1}`);
+        els.w1Matrix.appendChild(cell);
+        paramCells.w1.push({ cell, hiddenIndex, inputIndex });
+      }
+    }
+
+    for (let index = 0; index < state.hidden; index += 1) {
+      const cell = createParamCell(`b${index + 1}`, 'is-bias');
+      els.b1Matrix.appendChild(cell);
+      paramCells.b1.push({ cell, index });
+    }
+
+    for (let index = 0; index < state.hidden; index += 1) {
+      const cell = createParamCell(`w${index + 1}`, 'is-bias');
+      els.w2Matrix.appendChild(cell);
+      paramCells.w2.push({ cell, index });
+    }
+
+    const outputBiasCell = createParamCell('b²', 'is-bias');
+    els.b2Matrix.appendChild(outputBiasCell);
+    paramCells.b2 = outputBiasCell;
+    els.w2Matrix.style.setProperty('--hidden-count', state.hidden);
+  }
+
+  function formatSigned(value) {
+    if (Math.abs(value) < 0.005) return '0.00';
+    return `${value > 0 ? '+' : ''}${value.toFixed(2)}`;
+  }
+
+  function updateParamCell(cell, value, scale, fullName) {
+    const normalized = clamp(Math.abs(value) / Math.max(0.001, scale), 0, 1);
+    cell.style.background = weightColor(value > 0 ? normalized : -normalized);
+    cell._valueElement.textContent = formatSigned(value);
+    cell.title = `${fullName} = ${value.toFixed(5)}`;
+    cell.setAttribute('aria-label', `${fullName}，${value.toFixed(5)}`);
+  }
+
+  function renderParameters() {
+    const w1Scale = Math.max(0.25, ...state.w1.flat().map((value) => Math.abs(value)));
+    const b1Scale = Math.max(0.18, ...state.b1.map((value) => Math.abs(value)));
+    const w2Scale = Math.max(0.25, ...state.w2.map((value) => Math.abs(value)));
+    const b2Scale = Math.max(0.18, Math.abs(state.b2));
+
+    paramCells.w1.forEach(({ cell, hiddenIndex, inputIndex }) => {
+      updateParamCell(cell, state.w1[hiddenIndex][inputIndex], w1Scale, `W1[${hiddenIndex + 1},${inputIndex + 1}]`);
+    });
+    paramCells.b1.forEach(({ cell, index }) => {
+      updateParamCell(cell, state.b1[index], b1Scale, `b1[${index + 1}]`);
+    });
+    paramCells.w2.forEach(({ cell, index }) => {
+      updateParamCell(cell, state.w2[index], w2Scale, `W2[${index + 1}]`);
+    });
+    updateParamCell(paramCells.b2, state.b2, b2Scale, 'b2');
+  }
+
+  function renderMetrics() {
+    els.epoch.textContent = state.epochs.toLocaleString('zh-CN');
+    els.loss.textContent = state.loss == null ? '—' : state.loss.toFixed(4);
+    els.accuracy.textContent = state.accuracy == null ? '—' : `${(state.accuracy * 100).toFixed(1)}%`;
+    els.gradient.textContent = state.gradientNorm == null ? '—' : state.gradientNorm.toFixed(3);
+  }
+
+  function renderProbe() {
+    const probe = state.probe.inside ? state.probe : { x: 0, y: 0 };
+    const output = forward(probe.x, probe.y).output;
+    els.probeInput.textContent = `x = (${probe.x.toFixed(2)}, ${probe.y.toFixed(2)})`;
+    els.probeOutput.textContent = `ŷ = ${output.toFixed(3)}`;
+  }
+
+  function renderAll() {
+    renderDecisionBoundary();
+    renderLossChart();
+    renderNetwork();
+    renderParameters();
+    renderMetrics();
+    renderProbe();
+  }
+
+  function setRunStatus(text, mode = '') {
+    els.runStatus.textContent = text;
+    els.runStatus.classList.toggle('is-running', mode === 'running');
+    els.runStatus.classList.toggle('is-done', mode === 'done');
+  }
+
+  function updateTrainButton() {
+    els.trainButton.textContent = state.training ? '暂停训练' : (state.epochs > 0 ? '继续训练' : '开始训练');
+    els.stepButton.disabled = state.training;
+    els.resetButton.disabled = state.training;
+  }
+
+  function animate(timestamp) {
+    if (!state.training) return;
+    if (!state.lastFrame) state.lastFrame = timestamp;
+    if (timestamp - state.lastFrame >= 20) {
+      const steps = Number(state.speed) || 1;
+      for (let index = 0; index < steps && state.training; index += 1) {
+        trainEpoch();
+      }
+      state.lastFrame = timestamp;
+      renderAll();
+    }
+    if (state.training) state.frameHandle = requestAnimationFrame(animate);
+  }
+
+  function startTraining() {
+    if (state.training) return;
+    if (state.converged) state.manualResume = true;
+    state.converged = false;
+    state.training = true;
+    state.lastFrame = 0;
+    setRunStatus('训练中', 'running');
+    updateTrainButton();
+    cancelAnimationFrame(state.frameHandle);
+    state.frameHandle = requestAnimationFrame(animate);
+  }
+
+  function stopTraining(statusText = '已暂停', isError = false, mode = '') {
+    state.training = false;
+    cancelAnimationFrame(state.frameHandle);
+    if (isError) state.converged = true;
+    setRunStatus(statusText, mode);
+    updateTrainButton();
+    renderAll();
+  }
+
+  function toggleTraining() {
+    if (state.training) stopTraining('已暂停');
+    else startTraining();
+  }
+
+  function resetNetwork() {
+    state.training = false;
+    cancelAnimationFrame(state.frameHandle);
+    state.initSeed = (state.initSeed * 1664525 + 1013904223) >>> 0;
+    state.epochs = 0;
+    state.lossHistory = [];
+    state.gradientNorm = null;
+    state.converged = false;
+    state.manualResume = false;
+    state.probe = { x: 0, y: 0, inside: false };
+    initializeWeights();
+    measureModel();
+    setRunStatus('等待训练');
+    updateTrainButton();
+    renderAll();
+  }
+
+  function setDataset(dataset) {
+    const changed = dataset !== state.dataset;
+    state.dataset = dataset;
+    if (changed) state.dataSeed += 17;
+    else state.dataSeed += 1;
+    state.points = createDataset(dataset, state.dataSeed);
+    els.datasetButtons.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.dataset === dataset));
+    });
+    resetNetwork();
+  }
+
+  function updateProbeFromPointer(event) {
+    const rect = decisionCanvas.getBoundingClientRect();
+    const padding = Math.max(10, Math.min(rect.width, rect.height) * 0.028);
+    const plotSize = Math.min(rect.width, rect.height) - padding * 2;
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const inside = localX >= padding && localX <= padding + plotSize && localY >= padding && localY <= padding + plotSize;
+    if (!inside) {
+      state.probe = { x: 0, y: 0, inside: false };
+    } else {
+      state.probe = {
+        x: clamp((localX - padding) / plotSize * 2 - 1, -1, 1),
+        y: clamp(1 - (localY - padding) / plotSize * 2, -1, 1),
+        inside: true
+      };
+    }
+    renderDecisionBoundary();
+    renderNetwork();
+    renderProbe();
+  }
+
+  els.trainButton.addEventListener('click', toggleTraining);
+  els.stepButton.addEventListener('click', () => {
+    if (state.training) return;
+    if (state.converged) state.manualResume = true;
+    trainEpoch();
+    if (state.training === false && !state.converged) setRunStatus('单步完成');
+    renderAll();
+  });
+  els.resetButton.addEventListener('click', resetNetwork);
+
+  els.lrRange.addEventListener('input', () => {
+    state.learningRate = Number(els.lrRange.value);
+    els.lrValue.textContent = state.learningRate.toFixed(2);
+  });
+
+  els.hiddenSelect.addEventListener('change', () => {
+    state.hidden = Number(els.hiddenSelect.value);
+    buildParameterCells();
+    resetNetwork();
+  });
+
+  els.speedSelect.addEventListener('change', () => {
+    state.speed = Number(els.speedSelect.value);
+  });
+
+  els.datasetButtons.forEach((button) => {
+    button.addEventListener('click', () => setDataset(button.dataset.dataset));
+  });
+
+  decisionCanvas.addEventListener('pointermove', updateProbeFromPointer);
+  decisionCanvas.addEventListener('pointerdown', updateProbeFromPointer);
+  decisionCanvas.addEventListener('pointerleave', () => {
+    state.probe = { x: 0, y: 0, inside: false };
+    renderDecisionBoundary();
+    renderNetwork();
+    renderProbe();
+  });
+
+  if ('ResizeObserver' in window) {
+    const observer = new ResizeObserver(() => renderAll());
+    observer.observe(decisionCanvas);
+    observer.observe(els.lossCanvas);
+  } else {
+    window.addEventListener('resize', renderAll);
+  }
+
+  state.points = createDataset(state.dataset, state.dataSeed);
+  buildParameterCells();
+  resetNetwork();
+})();
+  </script>
+</body>
+</html>
